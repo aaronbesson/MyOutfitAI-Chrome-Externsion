@@ -20,7 +20,7 @@ app.options('/api/proxy', cors(corsOptions));
 app.use(express.json());
 
 // Define a POST route for the proxy endpoint
-const API_KEY = "sk-5IGipZMUOTHpKeLKA4bbQRbekel0APOmZFj918Ey";
+const API_KEY = process.env.FASHN_API_KEY;
 
 app.post('/api/proxy', async (req, res) => {
     try {
