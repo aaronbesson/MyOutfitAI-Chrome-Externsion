@@ -9,34 +9,21 @@
 
 <body>
     <div style="width: 360px; height: 540px;">
-
         <select id="garmentType" style="width: 100%; height: 26px;">
             <option value="">Select an option</option>
-            <option value="dresses">Swap Outfit</option>
-            <option value="upper_body">Swap Top</option>
-            <option value="lower_body">Swap Pants</option>
-            <option value="dresses">Try on Suit</option>
-            <option value="dresses">Try on Dress</option>
+            <option value="tops">Swap Top</option>
+            <option value="bottoms">Swap Pants</option>
+            <option value="one-pieces">Try on Dress/Suit</option>
         </select>
         <div id="loadingIndicator"
             style="display: none; background-color: black; position: fixed; bottom: 2px; left: 2px; color: white; padding: 2px 4px; border-radius: 4px;">
             Processing Image...
         </div>
 
-        
-
-
         <img id="resultImage" src="" alt="Result will appear here" hidden
             style="width: 360px; height: 540px; object-fit: contain;">
         <img id="uploadedImage" src="" alt="Uploaded Image will appear here" hidden
             style="width: 360px; height: 540px; object-fit: contain;">
-
-        <div id="enterApi" style="padding: 24px; margin-bottom: 24px; text-align: center; display: block;">
-            <h2>Add your Replicate API Key</h2>
-            <input type="text" id="apiKey" placeholder="Enter your Replicate API Key" style="width: 60%;">
-            <button id="saveKey">Save API Key</button><br /><br />
-            You'll only need to do this once. Your key is stored locally. Don't have one? <a href="https://replicate.com" target="_blank" style="margin-top: 12px;">Get an API Key</a>
-        </div>
 
         <div id="imageUploadContainer" style="width: 100%; justify-items: center; text-align: center; display: block; padding-bottom: 24px;">
             <h2>Upload your photo</h2>
@@ -45,10 +32,6 @@
             <input type="file" id="imageUpload" accept="image/*">
         </div>
 
-
-
-
-
         <script src="popup.js"></script>
         <script>
             document.getElementById('imageUploadContainer').addEventListener('click', function () {
@@ -56,27 +39,24 @@
             });
 
             document.getElementById('imageUpload').addEventListener('change', function (event) {
-                const file = event.target.files[0];  // Get the file from the input
+                const file = event.target.files[0];
                 if (file) {
-
-                    const fileSize = file.size / 1024 / 1024;  // Convert bytes to MB
-                    if (fileSize > 2) {  // Check if the file is larger than 2MB
+                    const fileSize = file.size / 1024 / 1024;
+                    if (fileSize > 2) {
                         alert('The image must be smaller than 2MB.');
-                        this.value = '';  // Reset the file input
+                        this.value = '';
                     } else {
                         const reader = new FileReader();
                         reader.onload = function (e) {
                             const imageUrl = e.target.result;
                             document.getElementById('uploadedImage').src = imageUrl;
                             document.getElementById('uploadedImage').hidden = false;
-                            // Optionally, store the image in chrome.storage.local if needed
                             chrome.storage.local.set({ userImage: imageUrl });
                         };
                         reader.readAsDataURL(file);
                     }
                 }
             });
-
         </script>
     </div>
     <a target="_blank" href="https://myoutfitai.com/dressingroom"
