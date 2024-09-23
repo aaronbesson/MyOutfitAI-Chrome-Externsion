@@ -80,9 +80,8 @@ document.getElementById('garmentType').addEventListener('change', function() {
 
 
 function checkDataAndMakeApiCall() {
-    chrome.storage.local.get(['userImage', 'garmentType', 'garmentUrl', 'apiKey'], function(data) {
-        if (data.userImage && data.garmentType && data.garmentUrl && data.apiKey) {
-            console.log("data.garmentType" + data.garmentType);
+    chrome.storage.local.get(['userImage', 'garmentType', 'garmentUrl'], function(data) {
+        if (data.userImage && data.garmentType && data.garmentUrl) {
             makeApiCall(data);
         } else {
             console.error("Data missing: ", data);
@@ -90,51 +89,50 @@ function checkDataAndMakeApiCall() {
     });
 }
 
-
 function makeApiCall(data) {
     document.getElementById('loadingIndicator').style.display = 'block';
     const postData = {
-        version: "5c6712b51ff45af53bba0e88d4a5ec33fad0a85de32462e3d3cbcf51b53d5d37",
-        input: {
-            seed: 42,
-            steps: 30,
-            category: data.garmentType,
-            garm_img: data.garmentUrl,
-            human_img: data.userImage,
-            garment_des: data.garmentType
-        }
+        model_image: data.userImage,
+        garment_image: data.garmentUrl,
+        category: data.garmentType,
+        nsfw_filter: true,
+        cover_feet: false,
+        adjust_hands: false,
+        restore_background: false,
+        restore_clothes: false,
+        guidance_scale: 2.5,
+        timesteps: 50,
+        seed: 42,
+        num_samples: 1
     };
 
     fetch('https://myoutfitai-server.onrender.com/api/proxy', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${data.apiKey}`
+            'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-            apiKey: data.apiKey, // Your server might need the API key inside the body to forward it correctly
-            data: postData          // Send postData as a nested object if your server expects it
-        })
+        body: JSON.stringify(postData)
     }).then(response => response.json())
       .then(responseData => {
-          console.log(responseData); // Ensure you are receiving the expected data
-          if (responseData && responseData.output && responseData.output) {
-              const imageUrl = responseData.output; // Assuming output directly gives the image URL
+          console.log(responseData);
+          if (responseData && responseData.output && responseData.output.length > 0) {
+              const imageUrl = responseData.output[0];
               const imageElement = document.getElementById('resultImage');
               const viewButton = document.getElementById('viewImageBtn');
     
               imageElement.src = imageUrl;
               imageElement.hidden = false;
-              viewButton.style.display = 'block'; // Make the button visible
+              viewButton.style.display = 'block';
               document.getElementById('loadingIndicator').style.display = 'none';
+
+              // Store the result image
+              chrome.storage.local.set({ resultImage: imageUrl });
           } else {
               console.error('API Response Error: ', responseData);
               document.getElementById('loadingIndicator').style.display = 'none';
-
           }
       }).catch(error => {
           console.error('Fetch Error:', error);
           document.getElementById('loadingIndicator').style.display = 'none';
       });
-    
 }
