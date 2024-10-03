@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const multer = require('multer');
+const FormData = require('form-data');
 const app = express();
 require('dotenv').config();
 
@@ -22,25 +24,35 @@ app.use(express.json());
 // Define a POST route for the proxy endpoint
 const API_KEY = process.env.FASHN_API_KEY;
 
-app.post('/api/proxy', async (req, res) => {
+const upload = multer();
+
+app.post('/api/proxy', upload.fields([{ name: 'model_image' }, { name: 'garment_image' }]), async (req, res) => {
     try {
+        const formData = new FormData();
+        
+        // Append files
+        formData.append('model_image', req.files['model_image'][0].buffer, { filename: 'model.jpg' });
+        formData.append('garment_image', req.files['garment_image'][0].buffer, { filename: 'garment.jpg' });
+        
+        // Append other fields
+        Object.keys(req.body).forEach(key => {
+            formData.append(key, req.body[key]);
+        });
+
         const apiResponse = await fetch('https://api.fashn.ai/v1/run', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                ...formData.getHeaders(),
                 'Authorization': `Bearer ${API_KEY}`
             },
-            body: JSON.stringify(req.body)
+            body: formData
         });
         const initialResponse = await apiResponse.json();
         
-        // Check if the response includes a URL to get the result
         if (initialResponse.id) {
-            // Poll the URL to get the result
             const result = await pollForResult(initialResponse.id);
             res.json(result);
         } else {
-            // If no URL is provided, return the initial response
             res.json(initialResponse);
         }
     } catch (error) {

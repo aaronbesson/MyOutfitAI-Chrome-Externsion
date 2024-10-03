@@ -46,19 +46,41 @@ document.getElementById('saveKey').addEventListener('click', function() {
 });
 
 // Event listener for file upload
-document.getElementById('imageUpload').addEventListener('change', function(event) {
+document.getElementById('imageUpload').addEventListener('change', async function(event) {
     document.getElementById('imageUploadContainer').style.display = 'none';
-    const reader = new FileReader();
-    reader.onload = function() {
-        const imageUrl = reader.result;
-        chrome.storage.local.set({ userImage: imageUrl }, function() {
-            const imageElement = document.getElementById('uploadedImage');
-            imageElement.src = imageUrl;
-            imageElement.hidden = false;
-        });
-    };
-    reader.readAsDataURL(event.target.files[0]);
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const originalImageUrl = e.target.result;
+            const resizedImageBlob = await resizeImage(originalImageUrl, 288, 432);
+            chrome.storage.local.set({ userImage: URL.createObjectURL(resizedImageBlob) }, function() {
+                const imageElement = document.getElementById('uploadedImage');
+                imageElement.src = URL.createObjectURL(resizedImageBlob);
+                imageElement.hidden = false;
+            });
+        };
+        reader.readAsDataURL(file);
+    }
 });
+
+// Update the resizeImage function
+function resizeImage(imgDataUrl, targetWidth, targetHeight) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+            canvas.toBlob((blob) => {
+                resolve(blob);
+            }, 'image/jpeg', 0.7); // Reduced quality to 0.7
+        };
+        img.src = imgDataUrl;
+    });
+}
 
 // Event listener for loading the popup
 document.addEventListener('DOMContentLoaded', function() {
@@ -89,50 +111,59 @@ function checkDataAndMakeApiCall() {
     });
 }
 
+// Update the makeApiCall function
 function makeApiCall(data) {
     document.getElementById('loadingIndicator').style.display = 'block';
-    const postData = {
-        model_image: data.userImage,
-        garment_image: data.garmentUrl,
-        category: data.garmentType,
-        nsfw_filter: true,
-        cover_feet: false,
-        adjust_hands: false,
-        restore_background: false,
-        restore_clothes: false,
-        guidance_scale: 2.5,
-        timesteps: 50,
-        seed: 42,
-        num_samples: 1
-    };
 
-    fetch('https://myoutfitai-server.onrender.com/api/proxy', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(postData)
-    }).then(response => response.json())
-      .then(responseData => {
-          console.log(responseData);
-          if (responseData && responseData.output && responseData.output.length > 0) {
-              const imageUrl = responseData.output[0];
-              const imageElement = document.getElementById('resultImage');
-              const viewButton = document.getElementById('viewImageBtn');
-    
-              imageElement.src = imageUrl;
-              imageElement.hidden = false;
-              viewButton.style.display = 'block';
-              document.getElementById('loadingIndicator').style.display = 'none';
+    const formData = new FormData();
+    formData.append('category', data.garmentType);
+    formData.append('nsfw_filter', 'true');
+    formData.append('cover_feet', 'false');
+    formData.append('adjust_hands', 'false');
+    formData.append('restore_background', 'false');
+    formData.append('restore_clothes', 'false');
+    formData.append('guidance_scale', '2.5');
+    formData.append('timesteps', '50');
+    formData.append('seed', '42');
+    formData.append('num_samples', '1');
 
-              // Store the result image
-              chrome.storage.local.set({ resultImage: imageUrl });
-          } else {
-              console.error('API Response Error: ', responseData);
-              document.getElementById('loadingIndicator').style.display = 'none';
-          }
-      }).catch(error => {
-          console.error('Fetch Error:', error);
-          document.getElementById('loadingIndicator').style.display = 'none';
-      });
+    // Convert base64 to Blob and append to FormData
+    fetch(data.userImage)
+        .then(res => res.blob())
+        .then(blob => {
+            formData.append('model_image', blob, 'model.jpg');
+            return fetch(data.garmentUrl);
+        })
+        .then(res => res.blob())
+        .then(blob => {
+            formData.append('garment_image', blob, 'garment.jpg');
+
+            return fetch('https://myoutfitai-server.onrender.com/api/proxy', {
+                method: 'POST',
+                body: formData
+            });
+        })
+        .then(response => response.json())
+        .then(responseData => {
+            console.log(responseData);
+            if (responseData && responseData.output && responseData.output.length > 0) {
+                const imageUrl = responseData.output[0];
+                const imageElement = document.getElementById('resultImage');
+                const viewButton = document.getElementById('viewImageBtn');
+        
+                imageElement.src = imageUrl;
+                imageElement.hidden = false;
+                viewButton.style.display = 'block';
+                document.getElementById('loadingIndicator').style.display = 'none';
+
+                // Store the result image
+                chrome.storage.local.set({ resultImage: imageUrl });
+            } else {
+                console.error('API Response Error: ', responseData);
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+        }).catch(error => {
+            console.error('Fetch Error:', error);
+            document.getElementById('loadingIndicator').style.display = 'none';
+        });
 }
